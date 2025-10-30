@@ -79,15 +79,50 @@ def atomic_write_json(path: Path, data):
     tmp.replace(path)
 
 def read_results():
+    """
+    Read results.json and always return a list.
+    If file doesn't contain a list, try to coerce it:
+      - if it's an object (dict), wrap it in a list
+      - if it's None/other, return an empty list
+    Also recovers gracefully from parse errors by backing up the bad file.
+    """
     try:
         with RESULTS_FILE.open("r", encoding="utf-8") as fh:
-            return json.load(fh)
+            data = json.load(fh)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):
+                # unexpected: old writer saved an object; preserve by wrapping
+                logger.warning("results.json contains an object; coercing to a list (wrapping).")
+                return [data]
+            # anything else -> coerce to empty list
+            logger.warning("results.json has unexpected content; resetting to empty list.")
+            return []
+    except json.JSONDecodeError:
+        # backup the bad file and return empty list
+        try:
+            bad = RESULTS_FILE.with_suffix(".bad.json")
+            RESULTS_FILE.replace(bad)
+            logger.exception("results.json was invalid JSON; backed up to %s", bad)
+        except Exception:
+            logger.exception("Failed to backup invalid results.json")
+        return []
+    except FileNotFoundError:
+        return []
     except Exception:
-        logger.exception("Failed to read results.json, returning empty list")
+        logger.exception("Failed reading results.json; returning empty list")
         return []
 
 def save_result(entry: dict):
+    """
+    Append an entry to results.json. Guarantees results is a list.
+    Uses atomic write to avoid corruption.
+    """
     results = read_results()
+    # Ensure results is a list
+    if not isinstance(results, list):
+        logger.warning("Coercing results into a list before appending.")
+        results = [results]
     results.append(entry)
     try:
         atomic_write_json(RESULTS_FILE, results)
