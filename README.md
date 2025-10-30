@@ -121,16 +121,6 @@ On the VPS, you should see:
 └─ venv/
 ```
 
-# 🧠 TL;DR summary
-
-| Step | Action                               |
-| ---- | ------------------------------------ |
-| 1    | Install Tor & Python on VPS          |
-| 2    | Copy `/opt/paritybit-crawler` folder |
-| 3    | Recreate venv & install deps         |
-| 4    | Test manually                        |
----
-
 # To run both Crawler and Scooper
 
 Crawler
