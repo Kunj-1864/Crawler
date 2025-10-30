@@ -41,7 +41,7 @@ cd /opt/paritybit-crawler
 
    ```bash
    cd /opt
-   git clone https://github.com/youruser/yourrepo.git paritybit-crawler
+   git clone https://github.com/ParityBit-Security/Crawler.git paritybit-crawler
    ```
 
 
