@@ -23,7 +23,7 @@ sites:
     url: "http://tgbl4hk2sertuwkataxxoe7cdkgwevksp57iwprlfoypjmzujislv3ad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -32,7 +32,7 @@ sites:
     url: "http://omegalock5zxwbhswbisc42o2q2i54vdulyvtqqbudqousisjgc7j7yd.onion/"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -43,7 +43,7 @@ sites:
     url: "http://threeamkelxicjsaf2czjyz2lc4q3ngqkxhhlexyfcp2o6raw4rphyad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -54,7 +54,7 @@ sites:
     url: "http://basemmnnqwxevlymli5bs36o5ynti55xojzvn246spahniugwkff2pad.onion/"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -63,7 +63,7 @@ sites:
     url: "http://3ev4metjirohtdpshsqlkrqcmxq6zu3d7obrdhglpy5jpbr7whmlfgqd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -72,7 +72,7 @@ sites:
     url: "http://akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -81,7 +81,7 @@ sites:
     url: "http://bmebpteoa53k76zoiafykh4axr4kzbx7jn2djvdrdde4r57bckkfxsyd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -90,7 +90,7 @@ sites:
     url: "http://om6q4a6cyipxvt7ioudxt24cw4oqu4yodmqzl25mqd2hgllymrgu4aqd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -99,7 +99,7 @@ sites:
     url: "http://leaktheanalyst.f5netgucjj7hphglzige37q6tswqfqyslti4gphbhofmx4j3mzqzjrad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -109,7 +109,7 @@ sites:
     url: "http://vubdbjsamrqk5nrzgdbvanwwfhfspqu2gz6lpepjeggpn46k2hf2syyd.onion/"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -145,7 +145,7 @@ sites:
     url: "http://arcuufpr5xxbbkin4mlidt7itmr6znlppk63jbtkeguuhszmc5g7qdyd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -154,7 +154,7 @@ sites:
     url: "http://ptyctpveqfevlukjw4hpdh6nb5oiemq6ek6tuuvxbtrfghvuutvscsid.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -172,7 +172,7 @@ sites:
     url: "http://ctyfftrjgtwdjzlgqh4avbd35sqrs6tde4oyam2ufbjch6oqpqtkdtid.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -181,7 +181,7 @@ sites:
     url: "http://dounczge5jhw4iztnnpzp54kd4ot3tikhjsimurtcewqssgye6vvrhqd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -191,7 +191,7 @@ sites:
     url: "http://urey23jtg6z7xx3tiybmc4sgcim7dawiz2abl6crpup2lfobf7yb5wyd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -201,7 +201,7 @@ sites:
     url: "http://4n6h3qqewk6dlqribjmw64al5szeuyhcbbfoar37p3yr43hz365nwnyd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -212,7 +212,7 @@ sites:
     url: "http://hptqq2o2qjva7lcaaq67w36jihzivkaitkexorauw7b2yul2z6zozpqd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -222,7 +222,7 @@ sites:
     url: "http://ciphbitqyg26jor7eeo6xieyq7reouctefrompp6ogvhqjba7uo4xdid.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -232,7 +232,7 @@ sites:
     url: "http://fjg4zi4opkxkvdz7mvwp7h6goe4tcby3hhkrz43pht4j3vakhy75znyd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -241,7 +241,7 @@ sites:
     url: "http://j5o5y2feotmhvr7cbcp2j2ewayv5mn5zenl3joqwx67gtfchhezjznad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -250,7 +250,7 @@ sites:
     url: "http://7ukmkdtyxdkdivtjad57klqnd3kdsmq6tp45rrsxqnu76zzv3jvitlqd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -259,7 +259,7 @@ sites:
     url: "http://dcarryhaih5oldidg3tbqwnde4lxljytnpvberrwgj2vlvunopd46dad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -268,7 +268,7 @@ sites:
     url: "http://devmanblggk7ddrtqj3tsocnayow3bwnozab2s4yhv4shpv6ueitjzid.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -277,7 +277,7 @@ sites:
     url: "http://direwolfgpyqohwxwoetsz7a6p72diu32c3wfysqdx4ei6bwft7zh3yd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -286,7 +286,7 @@ sites:
     url: "http://z3wqggtxft7id3ibr7srivv5gjof5fwg76slewnzwwakjuf3nlhukdid.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -361,7 +361,7 @@ sites:
     url: "http://krakenccj3wr23452a4ibkbkuph4d6soyx2xgjoogtuamc3m7u7wemad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -373,7 +373,7 @@ sites:
     url: "http://nleakk6sejx45jxtk7x6iyt65hwvfrkifc5v7ertdlwm3gttbpvlvxqd.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds: []
@@ -439,7 +439,7 @@ sites:
     url: "http://q2injs6dqvzemu2kkfpk7u3lsrcn4rddip3h2a7oc6uqwq6vjnduamad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
@@ -450,7 +450,7 @@ sites:
     url: "http://sarcomawmawlhov7o5mdhz4eszxxlkyaoiyiy2b5iwxnds2dmb4jakad.onion"
     type: "onion"
     enabled: true
-    max_pages: 20
+    max_pages: 40
     max_depth: 3
     allow_text_links: true
     extra_seeds:
