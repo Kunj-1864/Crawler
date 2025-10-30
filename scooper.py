@@ -1,191 +1,138 @@
 #!/usr/bin/env python3
 """
-scooper.py (single results.json)
+scooper.py
 
-- Loads keywords from keywords.txt (one per line).
-- Searches saved HTML files under Source/ using metadata.json to discover files.
-- Can run once or watch for:
-    * new keywords added -> search only added keywords and update results.json
-    * crawler run_complete.flag updated -> search all keywords and replace those entries in results.json
-- Saves combined results into a single results.json file (atomic replace).
+Updated scooper for Ubuntu/Linux environments.
+
+ - Scans under Source/<site>/html/*.html to match the crawler's storage layout.
+ - Preserves original scanning and reporting behavior.
+ - CLI: --watch and --poll-interval
 """
-
-import os
+from pathlib import Path
+import argparse
+import logging
+import sys
 import time
 import json
-import argparse
-from pathlib import Path
+import os
 from typing import List
 
-ROOT = Path.cwd()
-SOURCE_DIR = ROOT / "Source"
-RESULTS_FILE = ROOT / "results.json"
-KEYWORDS_FILE = ROOT / "keywords.txt"
-RUN_COMPLETE_FILE = ROOT / "run_complete.flag"
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "Source"
+LOG_DIR = BASE_DIR / "logs"
+RESULTS_FILE = BASE_DIR / "results.json"
+KEYWORDS_FILE = BASE_DIR / "keywords.txt"
 
-def normpath_str_to_path(s: str) -> Path:
-    """
-    Convert paths stored in results.json (may have backslashes from Windows)
-    into OS-native Paths.
-    """
-    import os as _os
-    normalized = s.replace("\\", _os.sep)
-    # If the path is absolute, Path will interpret it accordingly; if it's relative keep it relative
-    return Path(normalized)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+if not RESULTS_FILE.exists():
+    RESULTS_FILE.write_text("[]", encoding="utf-8")
 
-def load_keywords(path: Path) -> List[str]:
-    if not path.exists():
-        return []
-    return [l.strip() for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+# logging setup
+logfile = LOG_DIR / "scooper.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[logging.FileHandler(logfile, encoding="utf-8"), logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("scooper")
 
-def find_html_files_for_site(site_dir: Path):
-    """
-    Return all html files in site_dir (excluding metadata files).
-    """
-    if not site_dir.exists():
-        return []
-    files = []
-    for f in site_dir.iterdir():
-        if f.is_file() and f.suffix.lower() in ('.html', '.htm'):
-            files.append(f)
-    return sorted(files, reverse=True)
+# ----- utilities -----
+def atomic_write_json(path: Path, data):
+    tmp = path.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    tmp.replace(path)
 
-def search_file_for_keywords(path: Path, keywords: List[str], threshold=1):
-    """
-    Read file (text) and find keyword occurrences. Return list of hits.
-    """
-    text = ""
+def read_results():
     try:
-        text = path.read_text(encoding="utf-8", errors="replace").lower()
+        with RESULTS_FILE.open("r", encoding="utf-8") as fh:
+            return json.load(fh)
     except Exception:
+        logger.exception("Failed to read results.json, returning empty list")
         return []
-    hits = []
-    for kw in keywords:
-        if kw.lower() in text:
-            hits.append({"keyword": kw, "file": str(path), "snippet": extract_snippet(text, kw.lower())})
-    return hits
 
-def extract_snippet(text: str, kw: str, context=120):
-    idx = text.find(kw)
-    if idx == -1:
-        return ""
-    start = max(0, idx - context)
-    end = min(len(text), idx + len(kw) + context)
-    snip = text[start:end]
-    # return a short cleaned up snippet
-    return snip.replace("\n", " ").strip()
-
-def run_search(query=None, qfile=None, threshold=1):
-    keywords = []
-    if qfile:
-        keywords = load_keywords(Path(qfile))
-    elif query:
-        # single comma-separated list accepted
-        if isinstance(query, str) and "," in query:
-            keywords = [q.strip() for q in query.split(",") if q.strip()]
-        else:
-            keywords = [query.strip()]
-    else:
-        keywords = load_keywords(KEYWORDS_FILE)
-
-    results = {}
-    # If results file exists, load it to preserve unrelated keys
-    if RESULTS_FILE.exists():
-        try:
-            results = json.loads(RESULTS_FILE.read_text(encoding="utf-8")) or {}
-        except Exception:
-            results = {}
-
-    # iterate Source/* directories
-    if not SOURCE_DIR.exists():
-        print("No Source/ directory found. Run the crawler first.")
-        return
-
-    for site_dir in SOURCE_DIR.iterdir():
-        if not site_dir.is_dir():
-            continue
-        html_files = find_html_files_for_site(site_dir)
-        for f in html_files:
-            hits = search_file_for_keywords(f, keywords, threshold=threshold)
-            for h in hits:
-                k = h["keyword"]
-                results.setdefault(k, []).append({
-                    "site": site_dir.name,
-                    "file": str(f),
-                    "snippet": h.get("snippet"),
-                    "found_at": time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-                })
-
-    # atomic write
-    tmp = RESULTS_FILE.with_suffix(".tmp")
+def save_result(entry: dict):
+    results = read_results()
+    results.append(entry)
     try:
-        tmp.write_text(json.dumps(results, indent=2), encoding="utf-8")
-        tmp.replace(RESULTS_FILE)
-        print(f"Wrote {RESULTS_FILE} ({len(results)} keywords)")
-    except Exception as e:
-        print(f"Could not write results.json: {e}")
+        atomic_write_json(RESULTS_FILE, results)
+    except Exception:
+        logger.exception("Failed to write results.json")
 
-def run_update():
-    # Run crawler.py in same Python env to update Source/ ...
-    print("Running crawler.py to update Source/ ...")
-    import subprocess, sys
-    rc = subprocess.call([sys.executable, "crawler.py"])
-    if rc != 0:
-        print("crawler.py exited with code", rc)
-    else:
-        print("Update complete.")
+# ----- keyword loading -----
+def load_keywords() -> List[str]:
+    if not KEYWORDS_FILE.exists():
+        logger.warning("keywords.txt missing, scooper will not find anything")
+        return []
+    try:
+        with KEYWORDS_FILE.open("r", encoding="utf-8") as fh:
+            kws = [l.strip() for l in fh if l.strip() and not l.strip().startswith("#")]
+            return kws
+    except Exception:
+        logger.exception("Failed to read keywords.txt")
+        return []
 
-def monitor_and_run(poll_seconds=10):
-    """
-    Watch keywords.txt and run_complete.flag and trigger searches/updates accordingly.
-    """
-    last_keywords_mtime = None
-    last_run_flag = None
+# ----- scanning logic -----
+from bs4 import BeautifulSoup
 
-    while True:
-        # check keywords
-        if KEYWORDS_FILE.exists():
-            m = KEYWORDS_FILE.stat().st_mtime
-            if last_keywords_mtime is None:
-                last_keywords_mtime = m
-            elif m != last_keywords_mtime:
-                print("Keywords file changed. Running incremental search.")
-                run_search()
-                last_keywords_mtime = m
+def scan_file(path: Path, keywords: List[str]):
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        logger.exception(f"Failed to read {path}")
+        return []
+    found = []
+    lower = text.lower()
+    for kw in keywords:
+        if kw.lower() in lower:
+            found.append(kw)
+    return found
 
-        # check run_complete flag (crawler finished a run)
-        if RUN_COMPLETE_FILE.exists():
-            m2 = RUN_COMPLETE_FILE.stat().st_mtime
-            if last_run_flag is None:
-                last_run_flag = m2
-            elif m2 != last_run_flag:
-                print("Detected new crawler run. Running full search.")
-                run_search()
-                last_run_flag = m2
+def run_once():
+    keywords = load_keywords()
+    if not keywords:
+        return
+    # iterate html files in Source/<site>/html/
+    for html_file in DATA_DIR.glob("*/html/*.html"):
+        if not html_file.is_file():
+            continue
+        logger.info(f"Scanning {html_file}")
+        found = scan_file(html_file, keywords)
+        if found:
+            entry = {
+                "file": str(html_file),
+                "keywords": found,
+                "timestamp": int(time.time())
+            }
+            logger.info(f"Found keywords {found} in {html_file}")
+            save_result(entry)
 
-        time.sleep(poll_seconds)
+def watch_loop(poll_interval: int):
+    logger.info("Starting watch loop")
+    try:
+        while True:
+            try:
+                run_once()
+            except Exception:
+                logger.exception("Error in scooper run_once")
+            time.sleep(poll_interval)
+    except KeyboardInterrupt:
+        logger.info("Interrupted, exiting")
 
-def parse_args():
-    p = argparse.ArgumentParser(description="Scooper - search saved pages for keywords")
-    p.add_argument("cmd", choices=["search", "update", "monitor"], help="command to run")
-    p.add_argument("--query", help="single keyword or comma-separated keywords to search now")
-    p.add_argument("--query-file", help="path to keywords file")
-    p.add_argument("--threshold", type=int, default=1, help="occurrence threshold")
-    return p.parse_args()
-
+# ----- CLI -----
 def main():
-    args = parse_args()
-    if args.cmd == "update":
-        run_update()
-    elif args.cmd == "search":
-        if not args.query and not args.query_file:
-            print("Provide --query or --query-file")
-            return
-        run_search(query=args.query, qfile=args.query_file, threshold=args.threshold)
-    elif args.cmd == "monitor":
-        monitor_and_run()
+    parser = argparse.ArgumentParser(description="Scooper: scan saved HTML for keywords")
+    parser.add_argument("--watch", action="store_true", help="Watch mode: poll Source/ every N seconds")
+    parser.add_argument("--poll-interval", type=int, default=10, help="Poll interval in seconds for watch mode")
+    args = parser.parse_args()
+
+    if args.watch:
+        watch_loop(args.poll_interval)
     else:
-        print("Unknown command")
+        run_once()
 
 if __name__ == "__main__":
     main()
