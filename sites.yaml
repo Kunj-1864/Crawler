@@ -1,0 +1,458 @@
+sites:
+
+  - name: "Hack-DB"
+    url: "http://www.hack-db.org"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    allow_onclick_links: false
+    extra_seeds: []
+
+  - name: "DarkNetArmy"
+    url: "http://dna777fdlbcv24cx5ctdvydvfa277vgb6wd6w4ztem6cho3kqogi7bqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "0x7x4m3l0t"
+    url: "http://tgbl4hk2sertuwkataxxoe7cdkgwevksp57iwprlfoypjmzujislv3ad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "0mega"
+    url: "http://omegalock5zxwbhswbisc42o2q2i54vdulyvtqqbudqousisjgc7j7yd.onion/"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "https://0mega.cc/"
+      - "https://0mega.ws/"
+
+  - name: "3AM"
+    url: "http://threeamkelxicjsaf2czjyz2lc4q3ngqkxhhlexyfcp2o6raw4rphyad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://ulkvlj5sirgrbnvb4hvbjo2ex2c2ceqe2j4my57fcdozpbq5h5pyu7id.onion"
+      - "http://threeam7fj33rv5twe5ll7gcrp3kkyyt6ez5stssixnuwh4v3csxdwqd.onion"
+
+  - name: "8Base"
+    url: "http://basemmnnqwxevlymli5bs36o5ynti55xojzvn246spahniugwkff2pad.onion/"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Abyss-Data"
+    url: "http://3ev4metjirohtdpshsqlkrqcmxq6zu3d7obrdhglpy5jpbr7whmlfgqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Akira"
+    url: "http://akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Alphv"
+    url: "http://bmebpteoa53k76zoiafykh4axr4kzbx7jn2djvdrdde4r57bckkfxsyd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Anubis"
+    url: "http://om6q4a6cyipxvt7ioudxt24cw4oqu4yodmqzl25mqd2hgllymrgu4aqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "LeakTheAnalyst"
+    url: "http://leaktheanalyst.f5netgucjj7hphglzige37q6tswqfqyslti4gphbhofmx4j3mzqzjrad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://leaktheanalyst.f5netgucjj7hphglzige37q6tswqfqyslti4gphbhofmx4j3mzqzjrad.onion/download.html"
+
+  - name: "00Code"
+    url: "http://vubdbjsamrqk5nrzgdbvanwwfhfspqu2gz6lpepjeggpn46k2hf2syyd.onion/"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "4Cheat"
+    url: "https://4cheat.org/"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    extra_seeds: []
+
+  - name: "4Pda"
+    url: "https://4pda.to/forum/index.php"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    extra_seeds: []
+
+  - name: "Antiskam"
+    url: "https://antiskam.ru/"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    extra_seeds: []
+
+  - name: "ArcusMedia"
+    url: "http://arcuufpr5xxbbkin4mlidt7itmr6znlppk63jbtkeguuhszmc5g7qdyd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "ArchnaLeak"
+    url: "http://ptyctpveqfevlukjw4hpdh6nb5oiemq6ek6tuuvxbtrfghvuutvscsid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Bjorka"
+    url: "http://netleaks.net"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    extra_seeds: []
+
+  - name: "BlackNevas"
+    url: "http://ctyfftrjgtwdjzlgqh4avbd35sqrs6tde4oyam2ufbjch6oqpqtkdtid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "BlackByteCrux"
+    url: "http://dounczge5jhw4iztnnpzp54kd4ot3tikhjsimurtcewqssgye6vvrhqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://faow6n2hkweyyalp67zvonafn2dzphw36cav653wamj724mwsmtfa5yd.onion"
+
+  - name: "Blackout"
+    url: "http://urey23jtg6z7xx3tiybmc4sgcim7dawiz2abl6crpup2lfobf7yb5wyd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://yt7beb7fj6xbh4dndrlyvl3gn4ck36qn2oqheiqjs4bp3wspj3wgpcad.onion"
+
+  - name: "Brotherhood"
+    url: "http://4n6h3qqewk6dlqribjmw64al5szeuyhcbbfoar37p3yr43hz365nwnyd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://cxhu5iruoa3vkmn4blslh4qzabs6jzk26esxnngzjdlquo2beu2nrhyd.onion"
+      - "http://eyh7wketm3dwqadwfv5dti3yewbr7smrepmavshjfohhc6qwub44knqd.onion"
+
+  - name: "Chaos"
+    url: "http://hptqq2o2qjva7lcaaq67w36jihzivkaitkexorauw7b2yul2z6zozpqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://qf4p6ul3g7wyvynkxawlu7ganvgbk44myl35jqfa3aroass33dbvmdyd.onion"
+
+  - name: "Ciphbit"
+    url: "http://ciphbitqyg26jor7eeo6xieyq7reouctefrompp6ogvhqjba7uo4xdid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://sonarmsng5vzwqezlvtu2iiwwdn3dxkhotftikhowpfjuzg7p3ca5eid.onion"
+
+  - name: "CoinbaseCartel"
+    url: "http://fjg4zi4opkxkvdz7mvwp7h6goe4tcby3hhkrz43pht4j3vakhy75znyd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Crypto24"
+    url: "http://j5o5y2feotmhvr7cbcp2j2ewayv5mn5zenl3joqwx67gtfchhezjznad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Daixin"
+    url: "http://7ukmkdtyxdkdivtjad57klqnd3kdsmq6tp45rrsxqnu76zzv3jvitlqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Datacarry"
+    url: "http://dcarryhaih5oldidg3tbqwnde4lxljytnpvberrwgj2vlvunopd46dad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Devman2"
+    url: "http://devmanblggk7ddrtqj3tsocnayow3bwnozab2s4yhv4shpv6ueitjzid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Direwolf"
+    url: "http://direwolfgpyqohwxwoetsz7a6p72diu32c3wfysqdx4ei6bwft7zh3yd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "DragonForce"
+    url: "http://z3wqggtxft7id3ibr7srivv5gjof5fwg76slewnzwwakjuf3nlhukdid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://3pktcrcbmssvrnwe5skburdwe2h3v6ibdnn5kbjqihsg6eu6s6b7ryqd.onion"
+      - "http://dragonforxxbp3awc7mzs5dkswrua3znqyx5roefmi4smjrsdi22xwqd.onion"
+
+  - name: "Grep"
+    url: "http://grep3ql4yhlmpq5zy3en5bvenvfhrpzb6bgnkxeyse6basc7x4sqhgqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 30
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "IMN Crew"
+    url: "http://imncrewwfkbjkhr2oylerfm5qtbzfphhmpcfag43xc2kfgvluqtlgoid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 30
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "IncRansom"
+    url: "http://incblog6qu4y4mm4zvw5nrmue6qbwtgjsxpw6b7ixzssu36tsajldoad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 30
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://incbacg6bfwtrlzwdbqc55gsfl763s3twdtwhp27dzuik6s6rwdcityd.onion"
+
+  - name: "Interlock"
+    url: "http://ebhmkoohccl45qesdbvrjqtyro2hmhkmh6vkyfyjjzfllm3ix72aqaid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 30
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "JGroup"
+    url: "http://share.jtor.xyz"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    extra_seeds: []
+
+  - name: "Kairos"
+    url: "http://nerqnacjmdy3obvevyol7qhazkwkv57dwqvye5v46k5bcujtfa6sduad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 30
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "KillSec3"
+    url: "http://ks5424y3wpr5zlug5c7i6svvxweinhbdcqcfnptkfcutrncfazzgz5id.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 30
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Kraken"
+    url: "http://krakenccj3wr23452a4ibkbkuph4d6soyx2xgjoogtuamc3m7u7wemad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://vmnnrqf3gs3kl2kfnxatughwmnlyq6qxzyx24ylyh2w36vw3gqwqjpqd.onion"
+      - "http://cjhuttkivmtrf6itrmyoqnxw55isy3dh6u5ifc3fnhajp7lwn5deflid.onion"
+      - "http://3cxvgnwvbzzfm2abzxidi76uib53vsjudsavgzm4viaj26drkcdl6wad.onion"
+
+  - name: "LeakNet"
+    url: "http://nleakk6sejx45jxtk7x6iyt65hwvfrkifc5v7ertdlwm3gttbpvlvxqd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "LinkC"
+    url: "http://iywqjjaf2zioehzzauys3sktbcdmuzm2fsjkqsblnm7dt6axjfpoxwid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 35
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Locus"
+    url: "http://ugn5khvt4kitlivv4ddfh3lb6mdhn2ud3ximcaypy73hxlk3arj2goad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 35
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Lunalock"
+    url: "http://lunalockcccxzkpfovwzifwxcytqkiuak6wzybnniqwxcmpsetpbetid.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 35
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds: []
+
+  - name: "Lynx"
+    url: "http://lynxchatbykq2vycvyrtjqb3yuj4ze2wvdubzr2u6b632trwvdbsgmyd.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 30
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://lynxchatdy3tgcuijsqofhssopcepirjfq2f4pvb5qd4un4dhqyxswqd.onion"
+      - "http://lynxblogoxllth4b46cfwlop5pfj4s7dyv37yuy7qn2ftan6gd72hsad.onion"
+
+  - name: "Qilin"
+    url: "http://wikileaks2.site"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    extra_seeds: []
+
+  - name: "Radar"
+    url: "http://radar.ltd"
+    type: "surface"
+    enabled: true
+    max_pages: 20
+    max_depth: 2
+    allow_text_links: false
+    extra_seeds:
+      - "http://3bnusfu2lgk5at43ceu7cdok5yv4gfbono2jv57ho74ucjvc7czirfid.onion"
+
+  - name: "RansomHouse"
+    url: "http://q2injs6dqvzemu2kkfpk7u3lsrcn4rddip3h2a7oc6uqwq6vjnduamad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://xlirefmk3w2gsk3n5mkddinbfdatk6lhi7fj36knubhtoxiaqyus44yd.onion"
+      - "http://m7vtnbsgctdcsccqmpnmi6igg3pcuiliqqqsq6uonkzg4blpa4eysiad.onion"
+
+  - name: "Sarcoma"
+    url: "http://sarcomawmawlhov7o5mdhz4eszxxlkyaoiyiy2b5iwxnds2dmb4jakad.onion"
+    type: "onion"
+    enabled: true
+    max_pages: 40
+    max_depth: 3
+    allow_text_links: true
+    extra_seeds:
+      - "http://bi32pq7y3gqq3qacgvamnk2s2elnppvevqp325wtk2wo7vh2zavjcfid.onion"
+      - "http://ngvvafvhfgwknj63ivqjqdxc7b5fyedo67zshblipo5a2zuair5t4nid.onion"
