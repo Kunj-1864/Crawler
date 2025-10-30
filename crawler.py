@@ -1,366 +1,505 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 
 """
-crawler.py (fixed loader)
+crawler.py (Tor-aware + scheduler + dead-site handling + per-page versioning & archive)
+With run-complete flag so scooper can detect crawl cycles.
 
-This is the previous crawler with a more defensive load_sites() and run_once()
-so we don't treat nested lists or top-level mappings as a single 'site'.
+Features:
+- Auto-detect Tor SOCKS (9050 or 9150). Uses Tor if available.
+- Optional Tor ControlPort NEWNYM support via `stem` (optional).
+- Crawl sites defined in sites.yaml, save page HTML to Source/{site}/, maintain metadata.
+- Scheduler: run once or loop every N minutes (--interval-minutes).
+- Dead-site handling: when a site fails repeatedly, mark it dead and skip until retry window expires.
+- Per-page versioning: keep up to MAX_VERSIONS_PER_PAGE versions for live pages (default 3).
+- Archiving: pages that return ARCHIVE_STATUS_CODES (404,410) are marked archived and never pruned.
+- Writes `run_complete.flag` (timestamp) at the end of each full cycle.
 """
-from pathlib import Path
+
 import os
-import sys
-import json
 import time
+import json
+import random
+import socket
 import argparse
-import logging
-from typing import Optional, List, Any
+import hashlib
+from pathlib import Path
+from datetime import datetime, timezone, timedelta
+from urllib.parse import urljoin, urlparse, urldefrag, urlencode, parse_qsl, urlunparse
 
-# network
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
-# stem for Tor control (NEWNYM)
-try:
-    from stem import Signal
-    from stem.control import Controller
-    HAS_STEM = True
-except Exception:
-    HAS_STEM = False
-
-# ----- Base paths and initialization -----
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "Source"
-LOG_DIR = BASE_DIR / "logs"
-RESULTS_FILE = BASE_DIR / "results.json"
-SITES_FILE = BASE_DIR / "sites.yaml"
-KEYWORDS_FILE = BASE_DIR / "keywords.txt"
-
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-if not RESULTS_FILE.exists():
-    RESULTS_FILE.write_text("[]", encoding="utf-8")
-
-# ----- Logging -----
-logfile = LOG_DIR / "crawler.log"
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    handlers=[logging.FileHandler(logfile, encoding="utf-8"), logging.StreamHandler(sys.stdout)]
-)
-logger = logging.getLogger("crawler")
-
-# ----- Requests session configured for Tor -----
-TOR_SOCKS = os.environ.get("TOR_SOCKS", "socks5h://127.0.0.1:9050")
-REQUEST_TIMEOUT = (15, 30)  # connect, read
-
-session = requests.Session()
-# polite retries for transient errors
-retry_strategy = Retry(
-    total=3,
-    backoff_factor=1,
-    status_forcelist=[429, 500, 502, 503, 504],
-    allowed_methods=["HEAD", "GET", "OPTIONS"]
-)
-adapter = HTTPAdapter(max_retries=retry_strategy)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
-session.proxies.update({
-    "http": TOR_SOCKS,
-    "https": TOR_SOCKS,
-})
-
-# ----- Utility helpers -----
-def atomic_write_json(path: Path, data):
-    tmp = path.with_suffix(".tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
-    tmp.replace(path)
-
-def read_results():
-    """
-    Read results.json and always return a list.
-    If file doesn't contain a list, try to coerce it:
-      - if it's an object (dict), wrap it in a list
-      - if it's None/other, return an empty list
-    Also recovers gracefully from parse errors by backing up the bad file.
-    """
-    try:
-        with RESULTS_FILE.open("r", encoding="utf-8") as fh:
-            data = json.load(fh)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict):
-                # unexpected: old writer saved an object; preserve by wrapping
-                logger.warning("results.json contains an object; coercing to a list (wrapping).")
-                return [data]
-            # anything else -> coerce to empty list
-            logger.warning("results.json has unexpected content; resetting to empty list.")
-            return []
-    except json.JSONDecodeError:
-        # backup the bad file and return empty list
-        try:
-            bad = RESULTS_FILE.with_suffix(".bad.json")
-            RESULTS_FILE.replace(bad)
-            logger.exception("results.json was invalid JSON; backed up to %s", bad)
-        except Exception:
-            logger.exception("Failed to backup invalid results.json")
-        return []
-    except FileNotFoundError:
-        return []
-    except Exception:
-        logger.exception("Failed reading results.json; returning empty list")
-        return []
-
-def save_result(entry: dict):
-    """
-    Append an entry to results.json. Guarantees results is a list.
-    Uses atomic write to avoid corruption.
-    """
-    results = read_results()
-    # Ensure results is a list
-    if not isinstance(results, list):
-        logger.warning("Coercing results into a list before appending.")
-        results = [results]
-    results.append(entry)
-    try:
-        atomic_write_json(RESULTS_FILE, results)
-    except Exception:
-        logger.exception("Failed to write results.json")
-
-# ----- Tor controller / NEWNYM support -----
-def get_tor_controller(control_port: int = 9051) -> Optional[Controller]:
-    if not HAS_STEM:
-        return None
-    # try unix socket locations used by Debian/Ubuntu
-    possible_sockets = ["/run/tor/control", "/var/run/tor/control"]
-    for sock in possible_sockets:
-        if Path(sock).exists():
-            try:
-                return Controller.from_socket_file(path=sock)
-            except Exception:
-                logger.debug(f"Couldn't use socket {sock} as controller")
-    # try TCP control port fallback
-    try:
-        return Controller.from_port(port=control_port)
-    except Exception:
-        return None
-
-def tor_newnym() -> bool:
-    ctrl = get_tor_controller()
-    if not ctrl:
-        logger.debug("stem not available or tor controller not reachable")
-        return False
-    try:
-        ctrl.authenticate()
-        ctrl.signal(Signal.NEWNYM)
-        logger.info("Requested Tor NEWNYM (identity change)")
-        return True
-    except Exception:
-        logger.exception("Failed to signal NEWNYM")
-        return False
-
-# ----- Basic crawler logic (keeps original behavior but wraps network ops) -----
 import yaml
 from bs4 import BeautifulSoup
 
-def _flatten_sites(obj: Any) -> List[Any]:
-    """Recursively flatten nested lists to a single list of site items."""
-    out = []
-    if isinstance(obj, list):
-        for item in obj:
-            out.extend(_flatten_sites(item))
-    else:
-        out.append(obj)
-    return out
+# ---------------- Config (tweak as needed) ----------------
+SOURCE_DIR = Path("Source")
+SITES_YAML = Path("sites.yaml")
+DEAD_FILE = Path("dead_sites.json")
+RUN_COMPLETE_FILE = Path("run_complete.flag")
+HEADERS = [
+    {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"},
+    {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0"}
+]
+SKIP_EXT = {".zip", ".7z", ".rar", ".gz", ".bz2", ".xz", ".tar",
+            ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mp3", ".exe"}
+POLITE_DEFAULT = (6, 12)
 
-def load_sites() -> List[dict]:
-    """
-    Robust loader for sites.yaml.
-    Accepts:
-      - top-level list of site dicts
-      - top-level dict with key "sites": [ ... ]
-      - top-level dict mapping names -> url or mapping
-      - nested lists (will be flattened)
-    Returns a flat list of site items (dicts or strings).
-    """
-    if not SITES_FILE.exists():
-        logger.warning("sites.yaml not found; no sites to crawl")
-        return []
-    try:
-        with SITES_FILE.open("r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh)
-            if not data:
-                return []
-            # If top-level is a dict with a 'sites' key, use that
-            if isinstance(data, dict) and 'sites' in data and isinstance(data['sites'], list):
-                data = data['sites']
-            # If top-level is a mapping of name -> value, convert to list
-            if isinstance(data, dict):
-                normalized = []
-                for name, val in data.items():
-                    if isinstance(val, dict):
-                        # preserve existing dict but ensure name if missing
-                        if 'name' not in val:
-                            val['name'] = name
-                        normalized.append(val)
-                    else:
-                        # scalar value => treat as url
-                        normalized.append({'name': name, 'url': val})
-                data = normalized
-            # flatten nested lists
-            sites = _flatten_sites(data)
-            # final normalization: ensure each item is either dict or string
-            final = []
-            for item in sites:
-                if isinstance(item, dict) or isinstance(item, str):
-                    final.append(item)
-                else:
-                    # unexpected type: try to coerce to string
-                    final.append(str(item))
-            return final
-    except Exception:
-        logger.exception("Failed to load sites.yaml")
-        return []
+# Versioning / Archiving
+MAX_VERSIONS_PER_PAGE = 3              # default max versions to keep for live pages
+ARCHIVE_STATUS_CODES = {404, 410}      # status codes that mark page as removed/archived
 
-def fetch_url(url: str, allow_redirects: bool = True):
-    try:
-        r = session.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=allow_redirects)
-        r.raise_for_status()
-        return r
-    except Exception as e:
-        logger.warning(f"Failed to fetch {url}: {e}")
-        return None
+# ControlPort env (optional)
+CONTROL_PASSWORD = os.environ.get("CONTROL_PASSWORD")
+CONTROL_PORT = 9051
+# ---------------------------------------------------------
 
-def save_html_for_site(site_name: str, html: bytes, timestamp: int) -> Optional[Path]:
-    # create per-site folder: Source/<sitename>/html/
-    safe_site = site_name.strip().replace("/", "_") or "site"
-    site_dir = DATA_DIR / safe_site / "html"
-    site_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{timestamp}.html"
-    path = site_dir / filename
-    try:
-        with path.open("wb") as fh:
-            fh.write(html)
-        return path
-    except Exception:
-        logger.exception("Failed to save HTML for site %s", site_name)
-        return None
+def utc_now():
+    return datetime.now(timezone.utc)
 
-def extract_title(html: bytes) -> str:
-    try:
-        soup = BeautifulSoup(html, "lxml")
-        t = soup.title.string if soup.title and soup.title.string else ""
-        return t.strip()
-    except Exception:
-        return ""
+def utc_ts():
+    return utc_now().strftime("%Y%m%dT%H%M%SZ")
 
-def _get_site_url_and_name(site_item) -> Optional[tuple]:
-    """
-    Given a site_item (dict or string), normalize and return (url, name) or None.
-    """
-    if isinstance(site_item, str):
-        return site_item, site_item.replace("https://", "").replace("http://", "")
-    if isinstance(site_item, dict):
-        url = site_item.get("url") or site_item.get("site")
-        if not url:
-            # maybe the dict itself is a mapping name->url style (rare)
-            # try common keys
-            for k in ("link", "uri", "address"):
-                if k in site_item:
-                    url = site_item[k]
-                    break
-        name = site_item.get("name") or site_item.get("id") or (url or "site").replace("https://", "").replace("http://", "")
-        if url:
-            return url, name
-    # otherwise not usable
+def sha256_bytes(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
+
+def detect_tor_socks_port():
+    for port in (9050, 9150):
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.6):
+                return port
+        except OSError:
+            continue
     return None
 
-def run_once() -> dict:
-    """Run a single crawl over all sites. Returns a summary dict."""
-    sites = load_sites()
-    summary = {
-        "timestamp": int(time.time()),
-        "crawled": []
-    }
-    if not sites:
-        logger.info("No sites found in sites.yaml, exiting run_once")
-        return summary
+def session_with_optional_tor():
+    port = detect_tor_socks_port()
+    s = requests.Session()
+    s.headers.update(random.choice(HEADERS))
+    if port:
+        proxy = f"socks5h://127.0.0.1:{port}"
+        s.proxies.update({"http": proxy, "https": proxy})
+        print(f"✅ Using Tor SOCKS proxy at 127.0.0.1:{port}")
+    else:
+        print("⚠️ Tor SOCKS proxy not detected (no 9050/9150). Running without Tor.")
+    return s
 
-    # iterate normalized sites
-    for site_item in sites:
-        normalized = _get_site_url_and_name(site_item)
-        if not normalized:
-            logger.warning("Skipping invalid site entry: %s", repr(site_item))
-            continue
-        url, name = normalized
+def normalize_url_for_filename(url: str) -> str:
+    absu, _ = urldefrag(url)
+    p = urlparse(absu)
+    q = urlencode(sorted(parse_qsl(p.query, keep_blank_values=True)))
+    norm = urlunparse((p.scheme, p.netloc, p.path or "/", p.params, q, ""))
+    return norm
 
-        # Notify start of crawling (stdout + log)
-        msg_start = f"Crawling: {url}"
-        logger.info(msg_start)
-        print(msg_start)
+def safe_filename_from_url(url: str) -> str:
+    h = hashlib.sha1(url.encode()).hexdigest()[:12]
+    return f"{utc_ts()}_{h}.html"
 
-        resp = fetch_url(url)
-        if resp is None:
-            msg_fail = f"Failed to crawl: {url}"
-            logger.warning(msg_fail)
-            print(msg_fail)
-            continue
+def load_sites(path: Path):
+    if not path.exists():
+        raise SystemExit("sites.yaml not found")
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return [s for s in data.get("sites", []) if s.get("enabled", True)]
 
-        timestamp = int(time.time())
-        file_path = save_html_for_site(name, resp.content, timestamp)
-        title = extract_title(resp.content)
+def ensure_site_dir(site_name: str):
+    d = SOURCE_DIR / site_name
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
-        entry = {
-            "url": url,
-            "saved": str(file_path) if file_path else None,
-            "title": title,
-            "timestamp": timestamp,
-            "site_name": name
-        }
-        save_result(entry)
+def metadata_path(site_dir: Path):
+    return site_dir / "metadata.json"
 
-        msg_done = f"Crawled: {url} -> {file_path}"
-        logger.info(msg_done)
-        print(msg_done)
-
-        summary["crawled"].append({"url": url, "saved": str(file_path) if file_path else None, "title": title, "timestamp": timestamp})
-
-        # polite sleep between requests
-        time.sleep(2)
-
-    # write crawl-complete flag file with summary
-    flag_filename = DATA_DIR / f"crawl_complete_{summary['timestamp']}.json"
+def load_metadata(site_dir: Path):
+    mp = metadata_path(site_dir)
+    if not mp.exists():
+        return {"pages": {}}
     try:
-        atomic_write_json(flag_filename, summary)
-        logger.info(f"Wrote crawl-complete flag: {flag_filename}")
-        print(f"Crawl completed. Flag written: {flag_filename}")
+        return json.loads(mp.read_text(encoding="utf-8"))
     except Exception:
-        logger.exception("Failed to write crawl complete flag")
+        return {"pages": {}}
 
-    return summary
+def save_metadata(site_dir: Path, meta: dict):
+    mp = metadata_path(site_dir)
+    mp.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
-# ----- CLI and main loop -----
-def main():
-    parser = argparse.ArgumentParser(description="Crawler (Tor-aware)")
-    parser.add_argument("--interval-minutes", type=float, default=0, help="If >0, run periodically every N minutes")
-    parser.add_argument("--newnym", action="store_true", help="Try NEWNYM before each run")
-    args = parser.parse_args()
-
-    interval = max(0, args.interval_minutes)
-
+# old is_html_response expected a requests response;
+# since fetch_url now returns headers/content, we'll keep a small helper for headers
+def is_html_content_type(headers):
+    ctype = ""
     try:
-        while True:
-            if args.newnym:
-                tor_newnym()
-            run_once()
-            if interval <= 0:
-                break
-            logger.info(f"Sleeping for {interval} minutes")
-            time.sleep(interval * 60)
-    except KeyboardInterrupt:
-        logger.info("Interrupted, exiting")
+        ctype = headers.get("Content-Type", "") if headers else ""
+    except Exception:
+        ctype = ""
+    ctype = ctype.lower()
+    return ("text/html" in ctype) or ("application/xhtml+xml" in ctype)
+
+# ---------------- Robust streaming fetch ----------------
+def fetch_url(session: requests.Session, url: str, attempts=3, base_delay=3,
+              timeout=45, connect_timeout=10, read_chunk=8192, max_bytes=5 * 1024 * 1024) -> dict:
+    """
+    Robust fetch that streams the response, enforces:
+      - connect timeout (connect_timeout)
+      - overall timeout (timeout) from the start of the request
+      - max bytes to read (max_bytes)
+    Returns dict: {'status_code': int, 'headers': resp.headers, 'content': bytes, 'text': str or None}
+    Raises requests.RequestException on failure.
+    """
+    last_exc = None
+    delay = base_delay
+    for attempt in range(1, attempts + 1):
+        start = time.monotonic()
+        try:
+            resp = session.get(url, allow_redirects=True, stream=True, timeout=(connect_timeout, 5))
+            status = resp.status_code
+
+            # Read content incrementally with global timeout and max_bytes cap
+            chunks = []
+            total = 0
+            for chunk in resp.iter_content(chunk_size=read_chunk):
+                # check global timeout
+                if time.monotonic() - start > timeout:
+                    resp.close()
+                    raise requests.Timeout(f"Overall read timeout after {timeout}s for {url}")
+
+                if chunk:
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total >= max_bytes:
+                        # reached cap: stop reading further
+                        resp.close()
+                        break
+                # tiny sleep not necessary but gives event loop a breath for interrupts
+            content = b"".join(chunks)
+            # try to decode a text version (safe)
+            text = None
+            try:
+                text = content.decode("utf-8", errors="replace")
+            except Exception:
+                text = None
+
+            headers = {}
+            try:
+                # convert to plain dict (requests' headers is case-insensitive dict-like)
+                headers = dict(resp.headers)
+            except Exception:
+                headers = {}
+
+            # do not raise for 404/410 here - caller handles archiving
+            if status >= 400 and status not in ARCHIVE_STATUS_CODES:
+                # for other 4xx/5xx raise to trigger retry/backoff
+                raise requests.HTTPError(f"HTTP {status} for {url}")
+
+            return {"status_code": status, "headers": headers, "content": content, "text": text}
+        except (requests.Timeout, requests.ConnectionError, requests.HTTPError, requests.RequestException) as e:
+            last_exc = e
+            if attempt < attempts:
+                time.sleep(delay)
+                delay *= 2
+                continue
+            # final attempt failed: raise
+            raise
+    if last_exc:
+        raise last_exc
+    raise requests.RequestException("Unknown fetch error")
+
+# ---------------- Dead-site persistence ----------------
+def load_deadlist() -> dict:
+    if DEAD_FILE.exists():
+        try:
+            raw = DEAD_FILE.read_text(encoding="utf-8")
+            d = json.loads(raw)
+            # convert until -> datetime
+            for k, v in d.items():
+                if v.get("until"):
+                    v["until"] = datetime.fromisoformat(v["until"])
+            return d
+        except Exception:
+            return {}
+    return {}
+
+def save_deadlist(d: dict):
+    # convert datetimes to iso
+    serial = {}
+    for k, v in d.items():
+        serial[k] = v.copy()
+        if isinstance(serial[k].get("until"), datetime):
+            serial[k]["until"] = serial[k]["until"].isoformat()
+    DEAD_FILE.write_text(json.dumps(serial, indent=2), encoding="utf-8")
+
+def is_site_dead(deadlist: dict, site_key: str):
+    entry = deadlist.get(site_key)
+    if not entry:
+        return False
+    until = entry.get("until")
+    if not until:
+        return False
+    if isinstance(until, str):
+        until = datetime.fromisoformat(until)
+    if utc_now() < until:
+        return True
+    deadlist.pop(site_key, None)
+    save_deadlist(deadlist)
+    return False
+
+def mark_site_dead(deadlist: dict, site_key: str, reason: str, retry_hours: float):
+    until = utc_now() + timedelta(hours=retry_hours)
+    deadlist[site_key] = {
+        "marked_at": utc_now().isoformat(),
+        "until": until,
+        "reason": reason
+    }
+    save_deadlist(deadlist)
+    print(f"🛑 Marked '{site_key}' dead until {until.isoformat()} (reason: {reason})")
+
+# ----------------- Versioning & pruning helpers ----------------
+def prune_old_versions(site_dir: Path, page_meta: dict, max_versions: int):
+    """
+    Keep at most max_versions files for a non-archived page.
+    If page is archived (page_meta.get('archived') is True), do not prune.
+    Returns list of removed filenames.
+    """
+    if page_meta.get("archived"):
+        return []
+    files = page_meta.get("files", [])
+    if len(files) <= max_versions:
+        return []
+    removed = []
+    # files stored newest -> oldest. To remove oldest, pop from end.
+    while len(files) > max_versions:
+        fname = files.pop()  # remove oldest
+        fpath = site_dir / fname
+        try:
+            if fpath.exists():
+                fpath.unlink()
+                removed.append(fname)
+        except Exception as e:
+            print(f"[PRUNE ERR] Could not delete {fpath}: {e}")
+    page_meta["files"] = files
+    return removed
+
+# ----------------- Crawl single site -----------------
+def crawl_site(site_conf: dict, session: requests.Session, deadlist: dict,
+               seeds=None, max_pages=50, max_depth=2, polite=POLITE_DEFAULT,
+               max_failures=3, retry_hours_default=24, default_max_versions=MAX_VERSIONS_PER_PAGE):
+    site_name = site_conf.get("name") or site_conf.get("url")
+    base = site_conf.get("url")
+    if not base:
+        print(f"[WARN] Site config for {site_name} missing 'url'; skipping")
+        return
+
+    parsed_base = urlparse(base)
+    site_key = site_conf.get("key") or parsed_base.hostname or site_name
+
+    if is_site_dead(deadlist, site_key):
+        entry = deadlist.get(site_key)
+        print(f"[SKIP-Dead] {site_key} (until {entry.get('until')})")
+        return
+
+    site_dir = ensure_site_dir(site_name)
+    meta = load_metadata(site_dir)
+    meta.setdefault("pages", {})
+
+    print(f"== Crawling {site_name} -> {base} ==")
+    seeds = seeds or [base]
+    visited = set()
+    to_visit = [(s, 0) for s in seeds]
+    pages_fetched = 0
+    consecutive_failures = 0
+    retry_hours = site_conf.get("retry_hours", retry_hours_default)
+    site_max_versions = site_conf.get("max_versions_per_page", default_max_versions)
+
+    while to_visit and pages_fetched < max_pages:
+        url, depth = to_visit.pop(0)
+        if url in visited:
+            continue
+        visited.add(url)
+
+        path = urlparse(url).path or ""
+        ext = (Path(path).suffix or "").lower()
+        if ext in SKIP_EXT:
+            print(f"[SKIP EXT] {url}")
+            continue
+
+        time.sleep(random.uniform(*polite))
+        try:
+            result = fetch_url(session, url, attempts=3, base_delay=3, timeout=45)
+        except Exception as e:
+            print(f"[ERR] {site_name} {url} :: {e}")
+            consecutive_failures += 1
+            meta["pages"].setdefault(url, {})["last_error"] = str(e)
+            save_metadata(site_dir, meta)
+            if consecutive_failures >= max_failures:
+                reason = f"{consecutive_failures} consecutive fetch errors (last: {e})"
+                mark_site_dead(deadlist, site_key, reason, retry_hours)
+                return
+            continue
+
+        status = result.get("status_code")
+        headers = result.get("headers", {}) or {}
+        content = result.get("content", b"")
+        text = result.get("text", None)
+
+        page_meta = meta["pages"].setdefault(url, {})
+
+        if status in ARCHIVE_STATUS_CODES:
+            # mark archived and save metadata (do not prune archived pages)
+            page_meta.setdefault("files", page_meta.get("files", []))
+            page_meta["archived"] = True
+            page_meta["last_error"] = f"HTTP {status}"
+            page_meta["last_seen_at"] = utc_now().isoformat()
+            save_metadata(site_dir, meta)
+            print(f"[ARCHIVED] {url} -> HTTP {status}. Page archived and will not be pruned.")
+            consecutive_failures += 1
+            if consecutive_failures >= max_failures:
+                reason = f"{consecutive_failures} consecutive fetch errors (last: HTTP {status})"
+                mark_site_dead(deadlist, site_key, reason, retry_hours)
+                return
+            continue
+
+        # Success: reset failure counter
+        consecutive_failures = 0
+
+        # store content (note: this may be partial if max_bytes cap reached)
+        url_norm = normalize_url_for_filename(url)
+        fname = safe_filename_from_url(url_norm)
+        fpath = site_dir / fname
+        try:
+            fpath.write_bytes(content)
+        except Exception as e:
+            print(f"[FILE ERR] Could not write {fpath}: {e}")
+            page_meta["last_error"] = f"write_error:{e}"
+            save_metadata(site_dir, meta)
+            continue
+
+        # update page metadata: maintain files list newest->oldest
+        page_meta.setdefault("files", [])
+        page_meta["files"].insert(0, fname)  # newest at front
+        page_meta["content_hash"] = sha256_bytes(content or b"")
+        page_meta["status_code"] = status
+        page_meta["content_type"] = headers.get("Content-Type", "")
+        page_meta["last_seen_at"] = utc_now().isoformat()
+        page_meta["archived"] = False
+
+        # prune old versions for this page if not archived
+        removed_files = prune_old_versions(site_dir, page_meta, max_versions=site_max_versions)
+        if removed_files:
+            print(f"[PRUNED] Removed old files for {url}: {removed_files}")
+
+        save_metadata(site_dir, meta)
+        pages_fetched += 1
+        print(f"[SAVED] {site_name} {url} -> {fpath.name}")
+
+        # extract links if allowed depth and HTML content-type
+        if depth < max_depth and is_html_content_type(headers):
+            soup = BeautifulSoup(text or "", "lxml")
+            links = set()
+            for a in soup.find_all("a", href=True):
+                href = a["href"].strip()
+                if href.lower().startswith("javascript:"):
+                    continue
+                try:
+                    joined = urljoin(url, href)
+                except Exception:
+                    continue
+                parsed = urlparse(joined)
+                if parsed.hostname == urlparse(base).hostname:
+                    links.add(joined)
+            for l in links:
+                if l not in visited:
+                    to_visit.append((l, depth + 1))
+
+    print(f"Done: fetched {pages_fetched} pages for {site_name}")
+
+# ----------------- Tor Control helpers (optional) -----------------
+try:
+    from stem import Signal
+    from stem.control import Controller
+    STEM_AVAILABLE = True
+except Exception:
+    STEM_AVAILABLE = False
+
+def renew_tor_identity(password=None, port=CONTROL_PORT):
+    if not STEM_AVAILABLE:
+        print("⚠️ stem not installed -- cannot renew Tor identity programmatically")
+        return False
+    try:
+        with Controller.from_port(port=port) as controller:
+            if password:
+                controller.authenticate(password=password)
+            else:
+                controller.authenticate()
+            controller.signal(Signal.NEWNYM)
+            time.sleep(2)
+            print("🔁 Sent NEWNYM to Tor (requested new identity)")
+            return True
+    except Exception as e:
+        print(f"❌ Could not renew Tor identity: {e}")
+        return False
+
+# ----------------- Main loop / scheduler -----------------
+def write_run_complete_flag():
+    try:
+        RUN_COMPLETE_FILE.write_text(utc_now().isoformat(), encoding="utf-8")
+        print(f"📣 Wrote run-complete flag to {RUN_COMPLETE_FILE}")
+    except Exception as e:
+        print(f"[WARN] Could not write run-complete flag: {e}")
+
+def main_loop(interval_minutes: int, max_failures: int, retry_hours_default: float, single_run=False):
+    session = session_with_optional_tor()
+    deadlist = load_deadlist()
+
+    while True:
+        try:
+            sites = load_sites(SITES_YAML)
+        except SystemExit as e:
+            print(e)
+            return
+
+        for s in sites:
+            crawl_site(s, session, deadlist,
+                       seeds=[s.get("url")], max_pages=s.get("max_pages", 50),
+                       max_depth=s.get("max_depth", 2),
+                       polite=tuple(s.get("polite", POLITE_DEFAULT)),
+                       max_failures=s.get("max_failures", max_failures),
+                       retry_hours_default=s.get("retry_hours", retry_hours_default),
+                       default_max_versions=s.get("max_versions_per_page", MAX_VERSIONS_PER_PAGE))
+
+        # write the run-complete flag so scooper can pick it up
+        write_run_complete_flag()
+
+        if single_run:
+            print("Single run complete. Exiting.")
+            return
+
+        if interval_minutes <= 0:
+            print("Interval not specified (<=0). Exiting after one run.")
+            return
+
+        next_run = utc_now() + timedelta(minutes=interval_minutes)
+        print(f"Sleeping for {interval_minutes} minutes. Next run at {next_run.isoformat()}")
+        time.sleep(interval_minutes * 60)
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Tor-aware crawler with scheduling, dead-site handling, and per-page versioning")
+    p.add_argument("--interval-minutes", type=int, default=0,
+                   help="If >0, run crawling every N minutes. If 0 (default), run once and exit.")
+    p.add_argument("--max-failures", type=int, default=3,
+                   help="Number of consecutive failures before marking a site dead.")
+    p.add_argument("--retry-hours", type=float, default=24.0,
+                   help="How many hours to skip a site after marking it dead (can be overridden per-site in sites.yaml)")
+    p.add_argument("--single-run", action="store_true",
+                   help="Run one iteration regardless of --interval-minutes and exit (convenience).")
+    return p.parse_args()
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    try:
+        main_loop(interval_minutes=args.interval_minutes,
+                  max_failures=args.max_failures,
+                  retry_hours_default=args.retry_hours,
+                  single_run=args.single_run)
+    except KeyboardInterrupt:
+        print("Interrupted by user — exiting gracefully.")
+        # optionally update run_complete so scooper can run if desired:
+        try:
+            write_run_complete_flag()
+        except Exception:
+            pass
+        raise
