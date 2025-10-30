@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 """
-crawler.py
+crawler.py (fixed loader)
 
-Updated crawler for Ubuntu/Linux environments with requested behavior:
- - Logs/prints start and completion messages per-site.
- - Saves raw HTML into per-site folders: Source/<sitename>/html/<timestamp>.html
- - Writes a crawl-complete flag file: Source/crawl_complete_<timestamp>.json
- - Preserves original crawling logic (loads sites.yaml, extracts title, appends to results.json)
- - CLI: --interval-minutes and --newnym
+This is the previous crawler with a more defensive load_sites() and run_once()
+so we don't treat nested lists or top-level mappings as a single 'site'.
 """
 from pathlib import Path
 import os
@@ -16,7 +12,7 @@ import json
 import time
 import argparse
 import logging
-from typing import Optional, List
+from typing import Optional, List, Any
 
 # network
 import requests
@@ -134,7 +130,26 @@ def tor_newnym() -> bool:
 import yaml
 from bs4 import BeautifulSoup
 
+def _flatten_sites(obj: Any) -> List[Any]:
+    """Recursively flatten nested lists to a single list of site items."""
+    out = []
+    if isinstance(obj, list):
+        for item in obj:
+            out.extend(_flatten_sites(item))
+    else:
+        out.append(obj)
+    return out
+
 def load_sites() -> List[dict]:
+    """
+    Robust loader for sites.yaml.
+    Accepts:
+      - top-level list of site dicts
+      - top-level dict with key "sites": [ ... ]
+      - top-level dict mapping names -> url or mapping
+      - nested lists (will be flattened)
+    Returns a flat list of site items (dicts or strings).
+    """
     if not SITES_FILE.exists():
         logger.warning("sites.yaml not found; no sites to crawl")
         return []
@@ -143,21 +158,33 @@ def load_sites() -> List[dict]:
             data = yaml.safe_load(fh)
             if not data:
                 return []
-            # normalize to list of dicts or strings
-            sites = []
-            if isinstance(data, list):
-                for item in data:
-                    sites.append(item)
-            elif isinstance(data, dict):
-                # if top-level dict, convert to list
-                for k, v in data.items():
-                    if isinstance(v, dict):
-                        sites.append(v)
+            # If top-level is a dict with a 'sites' key, use that
+            if isinstance(data, dict) and 'sites' in data and isinstance(data['sites'], list):
+                data = data['sites']
+            # If top-level is a mapping of name -> value, convert to list
+            if isinstance(data, dict):
+                normalized = []
+                for name, val in data.items():
+                    if isinstance(val, dict):
+                        # preserve existing dict but ensure name if missing
+                        if 'name' not in val:
+                            val['name'] = name
+                        normalized.append(val)
                     else:
-                        sites.append({"url": v, "name": k})
-            else:
-                logger.warning("sites.yaml format not recognized")
-            return sites
+                        # scalar value => treat as url
+                        normalized.append({'name': name, 'url': val})
+                data = normalized
+            # flatten nested lists
+            sites = _flatten_sites(data)
+            # final normalization: ensure each item is either dict or string
+            final = []
+            for item in sites:
+                if isinstance(item, dict) or isinstance(item, str):
+                    final.append(item)
+                else:
+                    # unexpected type: try to coerce to string
+                    final.append(str(item))
+            return final
     except Exception:
         logger.exception("Failed to load sites.yaml")
         return []
@@ -194,6 +221,27 @@ def extract_title(html: bytes) -> str:
     except Exception:
         return ""
 
+def _get_site_url_and_name(site_item) -> Optional[tuple]:
+    """
+    Given a site_item (dict or string), normalize and return (url, name) or None.
+    """
+    if isinstance(site_item, str):
+        return site_item, site_item.replace("https://", "").replace("http://", "")
+    if isinstance(site_item, dict):
+        url = site_item.get("url") or site_item.get("site")
+        if not url:
+            # maybe the dict itself is a mapping name->url style (rare)
+            # try common keys
+            for k in ("link", "uri", "address"):
+                if k in site_item:
+                    url = site_item[k]
+                    break
+        name = site_item.get("name") or site_item.get("id") or (url or "site").replace("https://", "").replace("http://", "")
+        if url:
+            return url, name
+    # otherwise not usable
+    return None
+
 def run_once() -> dict:
     """Run a single crawl over all sites. Returns a summary dict."""
     sites = load_sites()
@@ -205,19 +253,13 @@ def run_once() -> dict:
         logger.info("No sites found in sites.yaml, exiting run_once")
         return summary
 
-    for site in sites:
-        # site may be a string or mapping with url & id
-        if isinstance(site, str):
-            url = site
-            name = url.replace("https://", "").replace("http://", "")
-        elif isinstance(site, dict):
-            url = site.get("url") or site.get("site")
-            name = site.get("name") or site.get("id") or (url or "site").replace("https://", "").replace("http://", "")
-        else:
+    # iterate normalized sites
+    for site_item in sites:
+        normalized = _get_site_url_and_name(site_item)
+        if not normalized:
+            logger.warning("Skipping invalid site entry: %s", repr(site_item))
             continue
-
-        if not url:
-            continue
+        url, name = normalized
 
         # Notify start of crawling (stdout + log)
         msg_start = f"Crawling: {url}"
